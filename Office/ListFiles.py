@@ -71,7 +71,7 @@ def AppendIncludeFiles(fileName, content, appendAt, dataToAppend, remainingFileL
         remainingFileList.append(fileName)
         return content
     dataToAppend = dataToAppend + firstAppearedAt
-    content = content.replace(firstAppearedAt, dataToAppend)
+    content = content.replace(firstAppearedAt, dataToAppend, 1)
     return content
 
 
@@ -81,27 +81,77 @@ def AppendIncludeFiles(fileName, content, appendAt, dataToAppend, remainingFileL
 # @Param3	:	List for files in which we are unable to include our required files
 # @Return	:	Modified content
 def ModifyNamespaces(currentfile, content, remainingFileList):
-
-    namespaceDic = {}  # our namespace dictionary with key = NamespaceAlias and value is actual Namespace
+    namespaceDic = {}       # our namespace dictionary with key = NamespaceAlias and value is actual Namespace
+    newLine = ""
     for line in content.split("\n"):
         temp = re.sub(r"\s", "", line)  # using regex to strip whitespaces
         start = temp.find("namespace")
         if start != -1:
             start = start + len("namespace")
             end = temp.find("=", start)
-            key = temp[start:end]
+            if end != -1:           # it mean its a new alias for namespace
+                value = re.sub(r"\s", "", temp[start:end])
 
-            start = end
-            end = len(temp)
-            value = temp[start:end]
+                start = end
+                end = len(temp)
+                key =  re.sub(r"\s", "", temp[start:end])
 
-            #TODO: rework on it
-            if namespaceDic.get(key, "NotFound") == "NotFound":
-                print("key:value pair already exists :: ", key, ":", value)
-            else:
-                print("Adding key:value pair to dic :: ", key, ":", value)
-                namespaceDic[key] = value
+                #TODO: rework on it
+                temp = namespaceDic.get(key, "NotFound")
+                if temp == "NotFound":
+                    print("key:value pair already exists :: ", key, ":", value)
+                else:
+                    print("Adding key:value pair to dic :: ", key, ":", value)
+                    namespaceDic[key] = value
+            else:                   # it mean its a "using namespace" statemanet
+                end = len(temp) - 1         # -1 for ';'
+                key = temp[start:end]
+                temp = namespaceDic.get(key, "NotFound")
+                newLine = line.replace(key, temp)
+        content = content.replace(line, newLine, 1)
     return content
+
+
+# Includes common files to other files and modify namespaces
+# @Param1	:	FilesList which is included in content, from which have to read and fill our dictionary  with
+#               Alias and Actual namespace expansion
+# @Param2	:	Convention from which Alias start with (ours start's with "G_")
+# @Param3	: 	Base namespace which contain all namespaces, (ours is "Aristocrat::")
+# @Param4	:	Dictionary filled with key as Expansion of namespace and value as its alias
+#               Example :   ((key) : (value))
+#                           ((Aristocrat::GDK::Slot) : (G_Slot))
+# @Return	:	True if yes, else False
+def FillNamespaceDic(fileNameList, AliasStartWith, ActualStartsWith, namespaceDic):
+    regex = AliasStartWith + r"[a-zA-Z]+[ \t=]"
+
+    for eachInclude in fileNameList:
+        file = open(eachInclude, "r")
+        content = file.read()
+        file.close()
+
+        for line in content.split("\n"):
+            key = ""
+            firstMatch = re.search(regex, line)
+            if firstMatch:
+                value = firstMatch.group(0)
+                if len(value) > 0:
+                    start = line.find(ActualStartsWith)
+                    end = line.find(";")
+                    key = line[start:end]
+
+                    # Aristocrat Specific content
+                    if ActualStartsWith == "Aristocrat::" or ActualStartsWith == "Aristocrat":
+                        key = key.replace("GDK_NAMESPACE", "GDK")
+                        key = key.replace("GDX_NAMESPACE", "GDX")
+
+                    found = namespaceDic.get(key, "Not Found")
+                    if found == "Not Found":
+                        namespaceDic[key] = value
+                        #print("Key Not Found : Key = ", key, ", Value = ", value)
+                    #else:
+                        #print("Key Found : Key = ", key, ", Value = ", value)
+            #else:
+                #print("No match found")
 
 
 # Includes common files to other files and modify namespaces
@@ -113,15 +163,24 @@ def ModifyNamespaces(currentfile, content, remainingFileList):
 def IncludeCommonFilesAndModifyNameSpace(directoryPath, fileNameList, extensioList, remainingFileList):
     fileNameToAppend = ""
     for eachInclude in fileNameList:
+        eachInclude = r'#include "' + eachInclude + r'"'
         fileNameToAppend = fileNameToAppend + eachInclude + "\n"
 
-    AllFiles = ListAllFilesInADirectory('.', extensioList)
+    namespaceDic = {}
+    FillNamespaceDic(["NamespaceAlias.h"], "G_", "Aristocrat::", namespaceDic)  #Thats how it should be called
+
+    for key in namespaceDic:
+        print(key, ":", namespaceDic[key])
+
+    AllFiles = ListAllFilesInADirectory(directoryPath, extensioList)
 
     for currentfile in AllFiles:
+        currentfile = directoryPath + r'/' + currentfile
         file = open(currentfile, "r")
         content = file.read()  # read out whole file in memory
         file.close()
 
+        print(currentfile)
         content = AppendIncludeFiles(currentfile, content, "include", fileNameToAppend, remainingFileList)
 
         content = ModifyNamespaces(currentfile, content, remainingFileList)
@@ -130,13 +189,14 @@ def IncludeCommonFilesAndModifyNameSpace(directoryPath, fileNameList, extensioLi
         file.write(content)
         file.close()
 
+def CallFun():
+    remainingFileList = []
+    IncludeCommonFilesAndModifyNameSpace('./src', ["NamespaceAlias.h"], [".h", ".hpp"], remainingFileList)
+    input("Press any key to exit......")
+
+print("Calling First Function : FillNamespaceDic")
+CallFun()
 
 # IncludeCommonFilesAndModifyNameSpace('.', ["#include <Mercury.h>", "#include <hahahah.h>"], [".h", ".hpp"], [])
-localStr = """
-using namespace Mercury;
-namespace GDK = Aristocrat::GDK;
-	namespace GDKServer = GDK::Server;
-"""
-
-ModifyNamespaces("Abc.h", localStr, [])
-input("Press any key to exit......")
+# TODO: Add NamespaceAlias.h in the src folder at the end of the process.
+# TODO: currently deleteing all data
