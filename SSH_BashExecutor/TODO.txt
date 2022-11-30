@@ -1,0 +1,1 @@
+bash script on local machine, copy it to remote machine using ssh and execute it and capture o/p and print it.
