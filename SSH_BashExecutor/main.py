@@ -67,7 +67,7 @@ class ScriptExecutor:
 
         sshClient = paramiko.SSHClient()
 
-        sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        sshClient.set_missing_host_key_policy(paramiko.MissingHostKeyPolicy())
 
         sshClient.connect(self.__dstHost, username=self.__dstUser, password=self.__dstPass, port=self.__dstPort)
 
