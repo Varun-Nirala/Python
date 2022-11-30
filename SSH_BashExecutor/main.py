@@ -5,7 +5,7 @@ import ntpath
 defaultSrcScriptPath = '/dev/scripts/bash1.sh'
 
 defaultDstHost = '192.168.168.2'
-defaultDstPort = '22'
+defaultDstPort = 22
 defaultDstCopyPath= '/dev/scripts'
 
 defaultUser = 'codename'
@@ -45,7 +45,7 @@ class ScriptExecutor:
         print('Script Name : %s\n' % self.__scriptName)
         print('Destination\n')
         print('    Host : %s\n' % self.__dstHost)
-        print('    Port : %s\n' % self.__dstPort)
+        print('    Port : %d\n' % self.__dstPort)
         print('    User : %s\n' % self.__dstUser)
         print('    Pass : %s\n' % self.__dstPass)
         print('    Path : %s\n' % self.__dstCopyPath)
@@ -62,12 +62,12 @@ class ScriptExecutor:
             with sftp.cd(self.__dstCopyPath):
                 sftp.put(self.__scriptPath)
 
-    def __executeScript(self, scriptOutPut):
+    def __executeScript(self):
         print('Executing script [%s] on machine [%s] ' % (self.__dstCopyPath, self.__dstHost))
 
         sshClient = paramiko.SSHClient()
 
-        sshClient.load_system_host_keys()
+        sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         sshClient.connect(self.__dstHost, username=self.__dstUser, password=self.__dstPass, port=self.__dstPort)
 
